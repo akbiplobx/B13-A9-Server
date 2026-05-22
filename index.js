@@ -26,6 +26,11 @@ async function run() {
     const db = client.db("pethaven");
     const petdataCollection = db.collection("petdata");
     
+    app.get('/my-listings', async(req, res)=>{
+      const result = await petdataCollection.find().toArray()
+      res.json(result)
+    })
+
     app.post('/petdata', async (req, res)=>{
       const petdata = req.body
       console.log(petdata)
@@ -45,10 +50,10 @@ async function run() {
 }
 run().catch(console.dir);
 
-// app.get('/', (req, res)=>{
-//     res.send('Hello World!')
-// }
-// )
+app.get('/', (req, res)=>{
+    res.send('Hello World!')
+}
+)
 app.listen(PORT, ()=>{
     console.log(`Server is running on port ${PORT}`)
 })
