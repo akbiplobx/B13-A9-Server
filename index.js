@@ -226,3 +226,37 @@ app.get('/my-requests', async (req, res) => {
     res.status(500).json({ message: "Server error fetching requests" });
   }
 });
+// ===========
+
+    app.delete('/pet/:id', async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).json({ message: "Invalid ID format" });
+        }
+
+        const query = { _id: new ObjectId(id) };
+
+        
+        let result = await petdataCollection.deleteOne(query);
+
+      
+        if (result.deletedCount === 0) {
+          result = await petsCollection.deleteOne(query);
+        }
+
+        console.log("Database delete result:", result);
+
+        
+        if (result.deletedCount === 0) {
+          return res.status(404).json({ message: "Pet not found in any collection to delete" });
+        }
+
+        res.json({ success: true, message: "Pet deleted successfully", result });
+      } catch (error) {
+        console.error("Backend error deleting pet:", error);
+        res.status(500).json({ message: "Server error deleting pet", error: error.message });
+      }
+    });
