@@ -5,10 +5,14 @@ const express = require('express')
 const dotenv = require('dotenv')
 const cors = require("cors")
 dotenv.config()
-const { MongoClient, ServerApiVersion } = require('mongodb');
+
+
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+
 const uri = process.env.MONGODB_URI;
 const app = express()
-const PORT = process.env.PORT 
+const PORT = process.env.PORT || 5000;
+
 app.use(cors())
 app.use(express.json())
 
@@ -19,41 +23,109 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   }
 });
+
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
-    const db = client.db("pethaven");
-    const petdataCollection = db.collection("petdata");
     
+    const db = client.db("pethaven");
+    
+    
+    const petsCollection = db.collection("pets");       
+    const petdataCollection = db.collection("petdata"); 
+    
+   
+    app.get('/pets', async (req, res) => {
+      try {
+        const { search, species, sort } = req.query;
+        let query = {};
+
+       
+        if (search) {
+          query.petName = { $regex: search, $options: 'i' };
+        }
+
+       
+        if (species && species !== 'All Species') {
+          const speciesArray = species.split(',');
+          query.species = { $in: speciesArray };
+        }
+
+       
+        let sortOptions = {};
+        if (sort === 'lowToHigh') {
+          sortOptions.adoptionFee = 1;  
+        } else if (sort === 'highToLow') {
+          sortOptions.adoptionFee = -1; 
+        }
+
+        
+        const result = await petsCollection.find(query).sort(sortOptions).toArray();
+        res.json(result);
+      } catch (error) {
+        res.status(500).json({ message: "Error fetching pets", error: error.message });
+      }
+    });
+
+   
     app.get('/my-listings', async(req, res)=>{
-      const result = await petdataCollection.find().toArray()
-      res.json(result)
-    })
+      try {
+        const result = await petdataCollection.find().toArray();
+        res.json(result);
+      } catch (error) {
+        res.status(500).json({ message: "Error fetching listings", error: error.message });
+      }
+    });
 
     app.post('/petdata', async (req, res)=>{
-      const petdata = req.body
-      console.log(petdata)
-      const result = await petdataCollection.insertOne(petdata)
-      console.log(result)
-      res.json(result)
-    })
+      try {
+        const petdata = req.body;
+        console.log("Adding new pet to user listings:", petdata);
+        const result = await petdataCollection.insertOne(petdata);
+        res.json(result);
+      } catch (error) {
+        res.status(500).json({ message: "Error inserting pet data", error: error.message });
+      }
+    });
 
+    app.get('/pet/:id', async (req, res) => {
+      try {
+        const id = req.params.id;
 
-    // Send a ping to confirm a successful connection
-    // await client.db("admin").command({ ping: 1 });
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).json({ message: "Invalid ID format" });
+        }
+
+        const query = { _id: new ObjectId(id) };
+
+        
+        let pet = await petsCollection.findOne(query);
+
+        if (!pet) {
+          pet = await petdataCollection.findOne(query);
+        }
+
+        if (!pet) {
+          return res.status(404).json({ message: "Pet not found" });
+        }
+
+        res.json(pet);
+      } catch (error) {
+        res.status(500).json({ message: "Error fetching pet details", error: error.message });
+      }
+    });
+
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
+  } catch (error) {
+    console.error("Database error:", error);
   }
 }
 run().catch(console.dir);
 
 app.get('/', (req, res)=>{
-    res.send('Hello World!')
-}
-)
+    res.send('PetNest Server is running smoothly!')
+});
+
 app.listen(PORT, ()=>{
     console.log(`Server is running on port ${PORT}`)
-})
+});
