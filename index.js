@@ -129,3 +129,99 @@ app.get('/', (req, res)=>{
 app.listen(PORT, ()=>{
     console.log(`Server is running on port ${PORT}`)
 });
+
+// =========================
+
+    app.put('/pet/:id', async (req, res) => {
+      try {
+        const id = req.params.id;
+        
+        
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).json({ message: "Invalid ID format" });
+        }
+
+        const query = { _id: new ObjectId(id) };
+        const body = req.body;
+
+        
+        console.log("Updating pet id:", id, "with data:", body);
+
+        
+        const updateDoc = {
+          $set: {
+            petName: body.petName || body.title || "",
+            species: body.species || "",
+            breed: body.breed || "",
+            age: body.age || "",
+            location: body.location || "",
+            adoptionFee: body.adoptionFee ? Number(body.adoptionFee) : 0, 
+            description: body.description || "",
+            imageUrl: body.imageUrl || body.image || "", 
+            status: body.status || "available"
+          }
+        };
+
+        
+        let result = await petdataCollection.updateOne(query, updateDoc);
+
+       
+        if (result.matchedCount === 0) {
+          result = await petsCollection.updateOne(query, updateDoc);
+        }
+
+        console.log("Database update result:", result);
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: "Pet not found in any collection to update" });
+        }
+
+        res.json({ success: true, message: "Pet updated successfully", result });
+      } catch (error) {
+        console.error("Backend error updating pet:", error);
+        res.status(500).json({ message: "Server error updating pet details", error: error.message });
+      }
+    });
+    // =========================
+   
+const adoptionRequestsCollection = client.db("petHaven").collection("adoptionRequests");
+
+
+app.post('/adoption-requests', async (req, res) => {
+  try {
+    const requestData = req.body;
+    
+   
+    const result = await adoptionRequestsCollection.insertOne({
+      petName: requestData.petName,
+      buyerName: requestData.buyerName,
+      buyerEmail: requestData.buyerEmail,
+      requestDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), // e.g., May 23, 2026
+      pickupDate: requestData.pickupDate ? new Date(requestData.pickupDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : "N/A",
+      status: "Pending", 
+      message: requestData.message || ""
+    });
+
+    res.status(201).json({ success: true, message: "Request submitted successfully!", result });
+  } catch (error) {
+    console.error("Error saving request:", error);
+    res.status(500).json({ success: false, message: "Server error saving request" });
+  }
+});
+
+app.get('/my-requests', async (req, res) => {
+  try {
+    const email = req.query.email;
+    let query = {};
+    
+    if (email) {
+      query = { buyerEmail: email };
+    }
+
+    const result = await adoptionRequestsCollection.find(query).toArray();
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching requests:", error);
+    res.status(500).json({ message: "Server error fetching requests" });
+  }
+});
