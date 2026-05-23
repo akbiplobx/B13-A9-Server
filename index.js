@@ -131,6 +131,7 @@ app.listen(PORT, ()=>{
 });
 
 // =========================
+    const petdataCollection = client.db("pethaven").collection("petdata")
 
     app.put('/pet/:id', async (req, res) => {
       try {
@@ -146,7 +147,7 @@ app.listen(PORT, ()=>{
 
         
         console.log("Updating pet id:", id, "with data:", body);
-
+     
         
         const updateDoc = {
           $set: {
@@ -184,7 +185,7 @@ app.listen(PORT, ()=>{
     });
     // =========================
    
-const adoptionRequestsCollection = client.db("petHaven").collection("adoptionRequests");
+const adoptionRequestsCollection = client.db("pethaven").collection("adoptionRequests");
 
 
 app.post('/adoption-requests', async (req, res) => {
