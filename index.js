@@ -23,42 +23,41 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   }
 });
-// ==================
-const JWKS =createRemoteJWKSet(
-  new URL("http://localhost:3000/api/auth/jwks")
-)
-// ===============================
-const verifyToken = async (req, res, next)=>{
-  const authHeader = req?.headers.authorization
-  if(!authHeader){
-    return res.status(401).json({message:
-      "Unauthorized"});
-  }
-  const token = authHeader.split(" ")[1]
-  if(!token){
-    return res.status(401).json({message:
-      "Unauthorized"});
-  }
-  try {const {payload} = await jwtVerify(token, JWKS)
-  console.log(payload)
-    next()
-  } catch (error) {
-    res.status(403).json({
-      message: "Forbidden"
-    });
-  }
-  // console.log(authHeader) 
- 
-}
-// =====================================
 
+// =====================================
+// JWT Configuration & Middleware
+// =====================================
+const JWKS = createRemoteJWKSet(
+  new URL("http://localhost:3000/api/auth/jwks")
+);
+
+const verifyToken = async (req, res, next) => {
+  const authHeader = req?.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  try {
+    const { payload } = await jwtVerify(token, JWKS);
+    console.log("Token Verified Payload:", payload);
+    req.user = payload; 
+    next();
+  } catch (error) {
+    res.status(403).json({ message: "Forbidden" });
+  }
+};
+
+// =====================================
+// MongoDB Routes Connection
+// =====================================
 async function run() {
   try {
-    
     await client.connect();
     const db = client.db("pethaven");
     
-   
     const petsCollection = db.collection("pets");       
     const petdataCollection = db.collection("petdata"); 
     const adoptionRequestsCollection = db.collection("adoptionRequests");
@@ -98,8 +97,8 @@ async function run() {
       }
     });
 
-    // Get My Listings
-    app.get('/my-listings', async(req, res)=>{
+    
+    app.get('/my-listings', async(req, res) => {
       try {
         const result = await petdataCollection.find().toArray();
         res.json(result);
@@ -109,18 +108,18 @@ async function run() {
     });
 
     // Add New Pet Data
-    app.post('/petdata', async (req, res)=>{
-      try {
-        const petdata = req.body;
-        console.log("Adding new pet to user listings:", petdata);
-        const result = await petdataCollection.insertOne(petdata);
-        res.json(result);
-      } catch (error) {
-        res.status(500).json({ message: "Error inserting pet data", error: error.message });
-      }
-    });
-// =====================================
-    // Get Single Pet Details (Checks both collections)
+   
+app.post('/petdata', verifyToken, async (req, res) => {
+  try {
+    const petdata = req.body;
+    console.log("Adding new pet to user listings:", petdata);
+    const result = await petdataCollection.insertOne(petdata);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: "Error inserting pet data", error: error.message });
+  }
+});
+    // Get Single Pet Details
     app.get('/pet/:id', verifyToken, async (req, res) => {
       try {
         const id = req.params.id;
@@ -143,8 +142,8 @@ async function run() {
       }
     });
 
-    // Update Pet Data
-    app.put('/pet/:id', async (req, res) => {
+    
+    app.put('/pet/:id', verifyToken, async (req, res) => {
       try {
         const id = req.params.id;
         if (!ObjectId.isValid(id)) {
@@ -187,8 +186,8 @@ async function run() {
       }
     });
 
-    // Delete Pet Data
-    app.delete('/pet/:id', async (req, res) => {
+    
+    app.delete('/pet/:id', verifyToken, async (req, res) => {
       try {
         const id = req.params.id;
         if (!ObjectId.isValid(id)) {
@@ -222,7 +221,7 @@ async function run() {
       try {
         const requestData = req.body;
         const result = await adoptionRequestsCollection.insertOne({
-          petId: requestData.petId, // মডাল ফিল্টারিং সহজ করার জন্য আইডিটি রাখা ভালো
+          petId: requestData.petId,
           petName: requestData.petName,
           buyerName: requestData.buyerName,
           buyerEmail: requestData.buyerEmail,
@@ -239,7 +238,7 @@ async function run() {
       }
     });
 
-    // Get Requests (Supports both Pet Specific and User Specific queries)
+    // Get Requests
     app.get('/my-requests', async (req, res) => {
       try {
         const { email, petId } = req.query;
@@ -260,7 +259,7 @@ async function run() {
       }
     });
 
-    
+    // Change Request Status
     app.patch('/change-status/:id', async (req, res) => {
       try {
         const id = req.params.id;
@@ -296,11 +295,11 @@ async function run() {
 run().catch(console.dir);
 
 // Base Route
-app.get('/', (req, res)=>{
+app.get('/', (req, res) => {
     res.send('PetNest Server is running smoothly!')
 });
 
 // Server Listener
-app.listen(PORT, ()=>{
+app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`)
 });
