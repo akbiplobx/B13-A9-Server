@@ -28,7 +28,7 @@ const client = new MongoClient(uri, {
 // JWT Configuration & Middleware
 // =====================================
 const JWKS = createRemoteJWKSet(
-  new URL("http://localhost:3000/api/auth/jwks")
+  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
 );
 
 const verifyToken = async (req, res, next) => {
@@ -55,7 +55,7 @@ const verifyToken = async (req, res, next) => {
 // =====================================
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     const db = client.db("pethaven");
     
     const petsCollection = db.collection("pets");       
